@@ -6,4 +6,5 @@ require __DIR__ . '/../core/_include/cfg.php';
 
 load_lib('sensor', 'sensor');
 
+\sensor::init();
 \sensor::broadcast();
