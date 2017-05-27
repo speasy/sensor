@@ -55,7 +55,10 @@ class sensor
         $id = \ctrl_socket::get_identity();
         if ('' !== $id) {
             $data = '--cmd="sensor/sensor,capture" --get="result" --data="' . http_build_query(['user' => $_SERVER['USERNAME'], 'name' => $_SERVER['COMPUTERNAME'], 'hash' => $id]) . '"';
-            while (true) \ctrl_socket::udp_broadcast($data);
+            while (true) {
+                \ctrl_socket::udp_broadcast($data);
+                sleep(60);
+            }
         }
     }
 
