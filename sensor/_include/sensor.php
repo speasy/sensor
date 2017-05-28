@@ -134,7 +134,7 @@ class sensor
     public static function del_key()
     {
         $node = CLI_CAS_PATH . \data_pool::$data['user'] . '@' . \data_pool::$data['name'] . '@' . \data_pool::$data['hash'] . '@public';
-        if (!is_file($node)) unlink($node);
+        if (is_file($node)) unlink($node);
         unset($node);
     }
 }
