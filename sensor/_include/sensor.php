@@ -34,9 +34,6 @@ class sensor
         'del_key'   => ['user', 'name', 'hash']
     ];
 
-    //Identity File Path
-    const identity = CLI_CAS_PATH . 'identity';
-
     /**
      * Initialize
      */
@@ -47,17 +44,47 @@ class sensor
     }
 
     /**
-     * Get Identity
+     * For Self
+     */
+
+    /**
+     * Get Self Identity
      *
      * @return string
      */
-    private static function get_identity(): string
+    private static function get_self_id(): string
     {
-        if (is_file(self::identity)) $id = (string)file_get_contents(self::identity);
+        $identity = CLI_CAS_PATH . 'identity';
+        if (is_file($identity)) $id = (string)file_get_contents($identity);
         else {
             $id = get_uuid();
-            if (0 === (int)file_put_contents(self::identity, $id)) $id = '';
+            if (0 === (int)file_put_contents($identity, $id)) $id = '';
         }
+        unset($identity);
+        return $id;
+    }
+
+    /**
+     * Get Pair Identity
+     *
+     * @param string $self
+     * @param string $hash
+     *
+     * @return string
+     */
+    private static function get_pair_id(string $self, string $hash): string
+    {
+        if ('' !== $self && '' !== $hash) {
+            $pair = get_uuid($self . $hash);
+            $identity = CLI_CAS_PATH . $pair;
+            if (is_file($identity)) $id = (string)file_get_contents($identity);
+            else {
+                $id = get_uuid();
+                if (0 === (int)file_put_contents($identity, $id)) $id = '';
+            }
+            unset($pair, $identity);
+        } else $id = '';
+        unset($self, $hash);
         return $id;
     }
 
@@ -70,7 +97,7 @@ class sensor
      */
     public static function broadcast()
     {
-        $id = self::get_identity();
+        $id = self::get_self_id();
         if ('' !== $id) {
             $data = '--cmd="sensor/sensor,capture" --get="result" --data="' . http_build_query(['user' => $_SERVER['USERNAME'], 'name' => $_SERVER['COMPUTERNAME'], 'hash' => $id]) . '"';
             while (true) {
@@ -89,11 +116,11 @@ class sensor
     {
         if ('' !== \data_pool::$data['user'] && '' !== \data_pool::$data['name'] && '' !== \data_pool::$data['hash']) {
             //Get Node identity
-            $node = CLI_CAS_PATH . \data_pool::$data['user'] . '@' . \data_pool::$data['name'] . '@' . \data_pool::$data['hash'];
+            $node = CLI_CAS_PATH . get_uuid(\data_pool::$data['user'] . '@' . \data_pool::$data['name'] . '@' . \data_pool::$data['hash']);
             //Check Key
             $key = base64_decode(\data_pool::$data['key'], true);
             $data = false !== $key && 0 < (int)file_put_contents($node, $key)
-                ? '--cmd="sensor/sensor,del_key" --data="' . http_build_query(['user' => $_SERVER['USERNAME'], 'name' => $_SERVER['COMPUTERNAME'], 'hash' => self::get_identity()]) . '"'
+                ? '--cmd="sensor/sensor,del_key" --data="' . http_build_query(['user' => $_SERVER['USERNAME'], 'name' => $_SERVER['COMPUTERNAME'], 'hash' => self::get_self_id()]) . '"'
                 : '';
             unset($node, $key);
         } else $data = '';
@@ -111,23 +138,25 @@ class sensor
      */
     public static function capture(): string
     {
-        $id = self::get_identity();
+        $self = self::get_self_id();
         //Escape self-broadcast
-        if ('' !== $id && $id !== \data_pool::$data['hash']) {
+        if ('' !== $self && '' !== \data_pool::$data['hash'] && $self !== \data_pool::$data['hash']) {
             //Get Node identity
-            $node = CLI_CAS_PATH . \data_pool::$data['user'] . '@' . \data_pool::$data['name'] . '@' . \data_pool::$data['hash'];
+            $node = CLI_CAS_PATH . get_uuid(\data_pool::$data['user'] . '@' . \data_pool::$data['name'] . '@' . \data_pool::$data['hash']);
             //Detect new node
             if (!is_file($node)) {
+                //Generate new node id
+                $id = self::get_pair_id($self, \data_pool::$data['hash']);
                 load_lib('core', 'data_crypt');
                 $keys = \data_crypt::get_pkey();
                 file_put_contents($node, $keys['private']);
-                file_put_contents($node . '@public', $keys['public']);
+                file_put_contents($node . '@key', $keys['public']);
                 $data = '--cmd="sensor/sensor,save_key" --get="result" --data="' . http_build_query(['user' => $_SERVER['USERNAME'], 'name' => $_SERVER['COMPUTERNAME'], 'hash' => $id, 'key' => base64_encode($keys['public'])]) . '"';
-                unset($keys);
+                unset($id, $keys);
             } else $data = '';
             unset($node);
         } else $data = '';
-        unset($id);
+        unset($self);
         return $data;
     }
 
@@ -137,8 +166,8 @@ class sensor
      */
     public static function get_key()
     {
-        $node = CLI_CAS_PATH . \data_pool::$data['user'] . '@' . \data_pool::$data['name'] . '@' . \data_pool::$data['hash'] . '@public';
-        if (!is_file($node)) {
+        $node = CLI_CAS_PATH . get_uuid(\data_pool::$data['user'] . '@' . \data_pool::$data['name'] . '@' . \data_pool::$data['hash']) . '@key';
+        if (is_file($node)) {
             $data = (string)file_get_contents($node);
             unlink($node);
         } else $data = '';
@@ -151,7 +180,7 @@ class sensor
      */
     public static function del_key()
     {
-        $node = CLI_CAS_PATH . \data_pool::$data['user'] . '@' . \data_pool::$data['name'] . '@' . \data_pool::$data['hash'] . '@public';
+        $node = CLI_CAS_PATH . get_uuid(\data_pool::$data['user'] . '@' . \data_pool::$data['name'] . '@' . \data_pool::$data['hash']) . '@key';
         if (is_file($node)) unlink($node);
         unset($node);
     }
