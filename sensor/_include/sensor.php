@@ -34,6 +34,9 @@ class sensor
         'del_key'   => ['user', 'name', 'hash']
     ];
 
+    //Identity File Path
+    const identity = CLI_CAS_PATH . 'identity';
+
     /**
      * Initialize
      */
@@ -41,6 +44,21 @@ class sensor
     {
         load_lib('core', 'data_pool');
         load_lib('core', 'ctrl_socket');
+    }
+
+    /**
+     * Get Identity
+     *
+     * @return string
+     */
+    private static function get_identity(): string
+    {
+        if (is_file(self::identity)) $id = (string)file_get_contents(self::identity);
+        else {
+            $id = get_uuid();
+            if (0 === (int)file_put_contents(self::identity, $id)) $id = '';
+        }
+        return $id;
     }
 
     /**
@@ -52,7 +70,7 @@ class sensor
      */
     public static function broadcast()
     {
-        $id = \ctrl_socket::get_identity();
+        $id = self::get_identity();
         if ('' !== $id) {
             $data = '--cmd="sensor/sensor,capture" --get="result" --data="' . http_build_query(['user' => $_SERVER['USERNAME'], 'name' => $_SERVER['COMPUTERNAME'], 'hash' => $id]) . '"';
             while (true) {
@@ -75,7 +93,7 @@ class sensor
             //Check Key
             $key = base64_decode(\data_pool::$data['key'], true);
             $data = false !== $key && 0 < (int)file_put_contents($node, $key)
-                ? '--cmd="sensor/sensor,del_key" --data="' . http_build_query(['user' => $_SERVER['USERNAME'], 'name' => $_SERVER['COMPUTERNAME'], 'hash' => \ctrl_socket::get_identity()]) . '"'
+                ? '--cmd="sensor/sensor,del_key" --data="' . http_build_query(['user' => $_SERVER['USERNAME'], 'name' => $_SERVER['COMPUTERNAME'], 'hash' => self::get_identity()]) . '"'
                 : '';
             unset($node, $key);
         } else $data = '';
@@ -93,7 +111,7 @@ class sensor
      */
     public static function capture(): string
     {
-        $id = \ctrl_socket::get_identity();
+        $id = self::get_identity();
         //Escape self-broadcast
         if ('' !== $id && $id !== \data_pool::$data['hash']) {
             //Get Node identity
