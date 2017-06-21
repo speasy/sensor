@@ -2,8 +2,8 @@
 
 declare(strict_types = 1);
 
-require __DIR__ . '/../core/_include/cfg.php';
+require __DIR__ . '/../core/_inc/cfg.php';
 
-load_lib('core', 'ctrl_socket');
+use \core\ctrl\socket;
 
-\ctrl_socket::tcp_server();
+socket::tcp_server();

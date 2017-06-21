@@ -24,6 +24,11 @@
  * You should have received a copy of the GNU General Public License
  * along with NervSys. If not, see <http://www.gnu.org/licenses/>.
  */
+
+namespace sensor;
+
+use \core\ctrl\pool, \core\ctrl\crypt, \core\ctrl\socket;
+
 class sensor
 {
     public static $api = [
@@ -33,15 +38,6 @@ class sensor
         'get_key'   => ['user', 'name', 'hash'],
         'del_key'   => ['user', 'name', 'hash']
     ];
-
-    /**
-     * Initialize
-     */
-    public static function init()
-    {
-        load_lib('core', 'data_pool');
-        load_lib('core', 'ctrl_socket');
-    }
 
     /**
      * For Self
@@ -101,7 +97,7 @@ class sensor
         if ('' !== $id) {
             $data = '--cmd="sensor/sensor,capture" --get="result" --data="' . http_build_query(['user' => $_SERVER['USERNAME'], 'name' => $_SERVER['COMPUTERNAME'], 'hash' => $id]) . '"';
             while (true) {
-                \ctrl_socket::udp_broadcast($data);
+                socket::udp_broadcast($data);
                 sleep(60);
             }
         }
@@ -114,11 +110,11 @@ class sensor
      */
     public static function save_key(): string
     {
-        if ('' !== \data_pool::$data['user'] && '' !== \data_pool::$data['name'] && '' !== \data_pool::$data['hash']) {
+        if ('' !== pool::$data['user'] && '' !== pool::$data['name'] && '' !== pool::$data['hash']) {
             //Get Node identity
-            $node = CLI_CAS_PATH . get_uuid(\data_pool::$data['user'] . '@' . \data_pool::$data['name'] . '@' . \data_pool::$data['hash']);
+            $node = CLI_CAS_PATH . get_uuid(pool::$data['user'] . '@' . pool::$data['name'] . '@' . pool::$data['hash']);
             //Check Key
-            $key = base64_decode(\data_pool::$data['key'], true);
+            $key = base64_decode(pool::$data['key'], true);
             $data = false !== $key && 0 < (int)file_put_contents($node, $key)
                 ? '--cmd="sensor/sensor,del_key" --data="' . http_build_query(['user' => $_SERVER['USERNAME'], 'name' => $_SERVER['COMPUTERNAME'], 'hash' => self::get_self_id()]) . '"'
                 : '';
@@ -140,15 +136,14 @@ class sensor
     {
         $self = self::get_self_id();
         //Escape self-broadcast
-        if ('' !== $self && '' !== \data_pool::$data['hash'] && $self !== \data_pool::$data['hash']) {
+        if ('' !== $self && '' !== pool::$data['hash'] && $self !== pool::$data['hash']) {
             //Get Node identity
-            $node = CLI_CAS_PATH . get_uuid(\data_pool::$data['user'] . '@' . \data_pool::$data['name'] . '@' . \data_pool::$data['hash']);
+            $node = CLI_CAS_PATH . get_uuid(pool::$data['user'] . '@' . pool::$data['name'] . '@' . pool::$data['hash']);
             //Detect new node
             if (!is_file($node)) {
                 //Generate new node id
-                $id = self::get_pair_id($self, \data_pool::$data['hash']);
-                load_lib('core', 'data_crypt');
-                $keys = \data_crypt::get_pkey();
+                $id = self::get_pair_id($self, pool::$data['hash']);
+                $keys = crypt::get_pkey();
                 file_put_contents($node, $keys['private']);
                 file_put_contents($node . '@key', $keys['public']);
                 $data = '--cmd="sensor/sensor,save_key" --get="result" --data="' . http_build_query(['user' => $_SERVER['USERNAME'], 'name' => $_SERVER['COMPUTERNAME'], 'hash' => $id, 'key' => base64_encode($keys['public'])]) . '"';
@@ -166,7 +161,7 @@ class sensor
      */
     public static function get_key()
     {
-        $node = CLI_CAS_PATH . get_uuid(\data_pool::$data['user'] . '@' . \data_pool::$data['name'] . '@' . \data_pool::$data['hash']) . '@key';
+        $node = CLI_CAS_PATH . get_uuid(pool::$data['user'] . '@' . pool::$data['name'] . '@' . pool::$data['hash']) . '@key';
         if (is_file($node)) {
             $data = (string)file_get_contents($node);
             unlink($node);
@@ -180,7 +175,7 @@ class sensor
      */
     public static function del_key()
     {
-        $node = CLI_CAS_PATH . get_uuid(\data_pool::$data['user'] . '@' . \data_pool::$data['name'] . '@' . \data_pool::$data['hash']) . '@key';
+        $node = CLI_CAS_PATH . get_uuid(pool::$data['user'] . '@' . pool::$data['name'] . '@' . pool::$data['hash']) . '@key';
         if (is_file($node)) unlink($node);
         unset($node);
     }

@@ -2,9 +2,9 @@
 
 declare(strict_types = 1);
 
-require __DIR__ . '/../core/_include/cfg.php';
+require __DIR__ . '/../core/_inc/cfg.php';
 
-load_lib('sensor', 'sensor');
+use \sensor\sensor;
 
-\sensor::init();
-\sensor::broadcast();
+sensor::init();
+sensor::broadcast();
